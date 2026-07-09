@@ -1,0 +1,10 @@
+.env
+
+terraform.tfstate
+terraform.tfstate.*
+
+.terraform/
+
+.DS_Store
+
+*.log
