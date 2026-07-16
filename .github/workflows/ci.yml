@@ -1,0 +1,20 @@
+name: Infrastructure CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: mkdir -p ../coachos-auth-service ../coachos-athlete-service ../coachos-media-service ../coachos-ai-review-service ../coachos-frontend
+      - run: sh -n scripts/*.sh
+      - run: docker compose --env-file .env -f docker-compose.dev.yml config --quiet
+      - run: docker compose --env-file .env -f docker-compose.prod.yml config --quiet
+      - run: docker run --rm --entrypoint /bin/promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.yml
+      - run: docker run --rm --entrypoint /bin/promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" prom/prometheus:v3.4.1 check rules /etc/prometheus/alerts.yml
+      - run: jq empty monitoring/grafana/dashboards/*.json

@@ -1,0 +1,57 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Service Targets Up",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(up{job=~\"coachos-services|coachos-nginx\"})", "refId": "A"}],
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests per Second",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (service) (rate(coachos_http_requests_total[5m]))", "legendFormat": "{{service}}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 9, "x": 6, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 Request Latency",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, service) (rate(coachos_http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 9, "x": 15, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP 5xx Rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (service) (rate(coachos_http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "{{service}}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "PostgreSQL Databases Up",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(pg_up)", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 4, "x": 12, "y": 8}
+    },
+    {
+      "type": "logs",
+      "title": "Application Logs",
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"expr": "{compose_project=~\"coachos.*\"}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": ["coachos"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "CoachOS Overview",
+  "uid": "coachos-overview",
+  "version": 1
+}

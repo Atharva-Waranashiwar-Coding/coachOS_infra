@@ -8,3 +8,7 @@ terraform.tfstate.*
 .DS_Store
 
 *.log
+
+backups/
+nginx/tls/*.pem
+!nginx/tls/.gitkeep

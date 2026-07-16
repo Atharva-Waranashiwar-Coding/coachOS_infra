@@ -1,0 +1,405 @@
+name: coachos-dev
+
+x-api-common: &api-common
+  restart: unless-stopped
+  init: true
+  networks: [coachos-public, coachos-internal, coachos-data]
+  environment:
+    JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+    JWT_ALGORITHM: HS256
+    LOG_LEVEL: INFO
+    METRICS_ENABLED: "true"
+    REQUEST_ID_HEADER: X-Request-ID
+    RUN_MIGRATIONS: "true"
+    CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+
+x-postgres-common: &postgres-common
+  image: postgres:16-alpine
+  restart: unless-stopped
+  networks: [coachos-data]
+  shm_size: 128mb
+
+services:
+  auth-db:
+    <<: *postgres-common
+    environment:
+      POSTGRES_DB: coachos_auth
+      POSTGRES_USER: coachos_auth
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    ports: ["5540:5432"]
+    volumes: [auth-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachos_auth -d coachos_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  athlete-db:
+    <<: *postgres-common
+    environment:
+      POSTGRES_DB: coachos_athlete
+      POSTGRES_USER: coachos_athlete
+      POSTGRES_PASSWORD: ${ATHLETE_DB_PASSWORD}
+    ports: ["5541:5432"]
+    volumes: [athlete-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachos_athlete -d coachos_athlete"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  media-db:
+    <<: *postgres-common
+    environment:
+      POSTGRES_DB: coachos_media
+      POSTGRES_USER: coachos_media
+      POSTGRES_PASSWORD: ${MEDIA_DB_PASSWORD}
+    ports: ["5542:5432"]
+    volumes: [media-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachos_media -d coachos_media"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ai-review-db:
+    <<: *postgres-common
+    environment:
+      POSTGRES_DB: coachos_ai_review
+      POSTGRES_USER: coachos_ai_review
+      POSTGRES_PASSWORD: ${AI_REVIEW_DB_PASSWORD}
+    ports: ["5543:5432"]
+    volumes: [ai-review-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachos_ai_review -d coachos_ai_review"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  auth-service:
+    <<: *api-common
+    build:
+      context: ../coachos-auth-service
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://coachos_auth:${AUTH_DB_PASSWORD}@auth-db:5432/coachos_auth
+      ENVIRONMENT: development
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      INTERNAL_SERVICE_TOKENS: '{"athlete-service":"${ATHLETE_TO_AUTH_TOKEN}"}'
+      ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
+      INTERNAL_SERVICE_NAME: auth-service
+      INTERNAL_SERVICE_TOKEN: ${AUTH_TO_ATHLETE_TOKEN}
+      ATHLETE_INVITATION_BASE_URL: http://localhost:8080/invitations/accept
+      ALLOW_DEV_INVITATION_URL_RESPONSE: "true"
+      METRICS_ENABLED: "true"
+      REQUEST_ID_HEADER: X-Request-ID
+      RUN_MIGRATIONS: "true"
+      LOG_LEVEL: INFO
+    ports: ["8000:8000"]
+    depends_on:
+      auth-db: {condition: service_healthy}
+
+  athlete-service:
+    <<: *api-common
+    build:
+      context: ../coachos-athlete-service
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://coachos_athlete:${ATHLETE_DB_PASSWORD}@athlete-db:5432/coachos_athlete
+      APP_ENV: development
+      AUTH_SERVICE_INTERNAL_URL: http://auth-service:8000
+      AI_REVIEW_SERVICE_URL: http://ai-review-service:8000
+      AI_REVIEW_SERVICE_INTERNAL_URL: http://ai-review-service:8000
+      MEDIA_SERVICE_INTERNAL_URL: http://media-service:8000
+      INTERNAL_SERVICE_NAME: athlete-service
+      INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_AUTH_TOKEN}
+      INTERNAL_SERVICE_TOKENS: '{"auth-service":"${AUTH_TO_ATHLETE_TOKEN}","media-service":"${MEDIA_TO_ATHLETE_TOKEN}","ai-review-service":"${AI_TO_ATHLETE_TOKEN}"}'
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      METRICS_ENABLED: "true"
+      REQUEST_ID_HEADER: X-Request-ID
+      RUN_MIGRATIONS: "true"
+      LOG_LEVEL: INFO
+    ports: ["8001:8000"]
+    depends_on:
+      athlete-db: {condition: service_healthy}
+      auth-service: {condition: service_healthy}
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks: [coachos-internal, coachos-data]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio-data:/data]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    networks: [coachos-data]
+    depends_on:
+      minio: {condition: service_started}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 2; done &&
+        mc mb --ignore-existing local/coachos-videos &&
+        mc anonymous set none local/coachos-videos
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+  media-service:
+    <<: *api-common
+    build:
+      context: ../coachos-media-service
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://coachos_media:${MEDIA_DB_PASSWORD}@media-db:5432/coachos_media
+      APP_ENV: development
+      ATHLETE_SERVICE_URL: http://athlete-service:8000
+      ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
+      INTERNAL_SERVICE_NAME: media-service
+      INTERNAL_SERVICE_TOKEN: ${MEDIA_TO_ATHLETE_TOKEN}
+      INSIGHT_INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_MEDIA_TOKEN}
+      TIMELINE_PUBLISHING_ENABLED: "true"
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_NAME: coachos-videos
+      S3_ENDPOINT_URL: http://minio:9000
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      METRICS_ENABLED: "true"
+      REQUEST_ID_HEADER: X-Request-ID
+      RUN_MIGRATIONS: "true"
+      LOG_LEVEL: INFO
+    ports: ["8003:8000"]
+    depends_on:
+      media-db: {condition: service_healthy}
+      athlete-service: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+
+  media-outbox-worker:
+    build:
+      context: ../coachos-media-service
+    command: ["python", "-m", "app.workers.outbox_publisher"]
+    restart: unless-stopped
+    init: true
+    networks: [coachos-internal, coachos-data]
+    environment:
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://coachos_media:${MEDIA_DB_PASSWORD}@media-db:5432/coachos_media
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ATHLETE_SERVICE_URL: http://athlete-service:8000
+      ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
+      INTERNAL_SERVICE_NAME: media-service
+      INTERNAL_SERVICE_TOKEN: ${MEDIA_TO_ATHLETE_TOKEN}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_NAME: coachos-videos
+      S3_ENDPOINT_URL: http://minio:9000
+      TIMELINE_PUBLISHING_ENABLED: "true"
+    depends_on:
+      media-service: {condition: service_healthy}
+
+  ai-review-service:
+    <<: *api-common
+    build:
+      context: ../coachos-ai-review-service
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://coachos_ai_review:${AI_REVIEW_DB_PASSWORD}@ai-review-db:5432/coachos_ai_review
+      APP_ENV: development
+      ATHLETE_SERVICE_URL: http://athlete-service:8000
+      ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
+      MEDIA_SERVICE_URL: http://media-service:8000
+      INTERNAL_SERVICE_NAME: ai-review-service
+      INTERNAL_SERVICE_TOKEN: ${AI_TO_ATHLETE_TOKEN}
+      INSIGHT_INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_AI_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      METRICS_ENABLED: "true"
+      REQUEST_ID_HEADER: X-Request-ID
+      RUN_MIGRATIONS: "true"
+      LOG_LEVEL: INFO
+    ports: ["8004:8000"]
+    depends_on:
+      ai-review-db: {condition: service_healthy}
+      athlete-service: {condition: service_healthy}
+      media-service: {condition: service_healthy}
+
+  ai-review-worker:
+    build:
+      context: ../coachos-ai-review-service
+    command: ["python", "-m", "app.workers.review_worker"]
+    restart: unless-stopped
+    init: true
+    networks: [coachos-internal, coachos-data]
+    environment: &ai-worker-environment
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://coachos_ai_review:${AI_REVIEW_DB_PASSWORD}@ai-review-db:5432/coachos_ai_review
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ATHLETE_SERVICE_URL: http://athlete-service:8000
+      ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
+      MEDIA_SERVICE_URL: http://media-service:8000
+      INTERNAL_SERVICE_NAME: ai-review-service
+      INTERNAL_SERVICE_TOKEN: ${AI_TO_ATHLETE_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      ai-review-service: {condition: service_healthy}
+
+  ai-review-outbox-worker:
+    build:
+      context: ../coachos-ai-review-service
+    command: ["python", "-m", "app.workers.outbox_publisher"]
+    restart: unless-stopped
+    init: true
+    networks: [coachos-internal, coachos-data]
+    environment: *ai-worker-environment
+    depends_on:
+      ai-review-service: {condition: service_healthy}
+
+  frontend:
+    build:
+      context: ../coachos-frontend
+      args:
+        VITE_APP_ENV: production
+        VITE_AUTH_API_URL: /auth-api
+        VITE_ATHLETE_API_URL: /athlete-api
+        VITE_AI_REVIEW_API_URL: /ai-review-api
+        VITE_MEDIA_API_URL: /media-api
+    restart: unless-stopped
+    init: true
+    networks: [coachos-public]
+
+  nginx:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    restart: unless-stopped
+    networks: [coachos-public]
+    ports: ["8080:8080"]
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/proxy-common.conf:/etc/nginx/proxy-common.conf:ro
+    depends_on:
+      frontend: {condition: service_healthy}
+      auth-service: {condition: service_healthy}
+      athlete-service: {condition: service_healthy}
+      media-service: {condition: service_healthy}
+      ai-review-service: {condition: service_healthy}
+
+  frontend-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.1
+    command: ["--nginx.scrape-uri=http://frontend:8080/nginx_status"]
+    restart: unless-stopped
+    networks: [coachos-public, monitoring]
+    depends_on: [frontend]
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.1
+    command: ["--nginx.scrape-uri=http://nginx:8080/nginx_status"]
+    restart: unless-stopped
+    networks: [coachos-public, monitoring]
+    depends_on: [nginx]
+
+  auth-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    networks: [coachos-data, monitoring]
+    environment:
+      DATA_SOURCE_NAME: postgresql://coachos_auth:${AUTH_DB_PASSWORD}@auth-db:5432/coachos_auth?sslmode=disable
+    depends_on:
+      auth-db: {condition: service_healthy}
+
+  athlete-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    networks: [coachos-data, monitoring]
+    environment:
+      DATA_SOURCE_NAME: postgresql://coachos_athlete:${ATHLETE_DB_PASSWORD}@athlete-db:5432/coachos_athlete?sslmode=disable
+    depends_on:
+      athlete-db: {condition: service_healthy}
+
+  media-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    networks: [coachos-data, monitoring]
+    environment:
+      DATA_SOURCE_NAME: postgresql://coachos_media:${MEDIA_DB_PASSWORD}@media-db:5432/coachos_media?sslmode=disable
+    depends_on:
+      media-db: {condition: service_healthy}
+
+  ai-review-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    networks: [coachos-data, monitoring]
+    environment:
+      DATA_SOURCE_NAME: postgresql://coachos_ai_review:${AI_REVIEW_DB_PASSWORD}@ai-review-db:5432/coachos_ai_review?sslmode=disable
+    depends_on:
+      ai-review-db: {condition: service_healthy}
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    restart: unless-stopped
+    networks: [coachos-public, monitoring]
+    ports: ["9090:9090"]
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+
+  loki:
+    image: grafana/loki:3.5.1
+    command: ["-config.file=/etc/loki/config.yml"]
+    restart: unless-stopped
+    networks: [monitoring]
+    ports: ["3100:3100"]
+    volumes:
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:3.5.1
+    command: ["-config.file=/etc/promtail/config.yml"]
+    restart: unless-stopped
+    networks: [monitoring]
+    volumes:
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on: [loki]
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    restart: unless-stopped
+    networks: [monitoring]
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus, loki]
+
+networks:
+  coachos-public:
+  coachos-internal:
+    internal: true
+  coachos-data:
+    internal: true
+  monitoring:
+    internal: true
+
+volumes:
+  auth-db-data:
+  athlete-db-data:
+  media-db-data:
+  ai-review-db-data:
+  minio-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:
