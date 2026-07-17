@@ -11,7 +11,7 @@ x-api-common: &api-common
     METRICS_ENABLED: "true"
     REQUEST_ID_HEADER: X-Request-ID
     RUN_MIGRATIONS: "true"
-    CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+    CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
 
 x-postgres-common: &postgres-common
   image: postgres:16-alpine
@@ -84,7 +84,7 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       DATABASE_URL: postgresql+psycopg://coachos_auth:${AUTH_DB_PASSWORD}@auth-db:5432/coachos_auth
       ENVIRONMENT: development
-      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
       INTERNAL_SERVICE_TOKENS: '{"athlete-service":"${ATHLETE_TO_AUTH_TOKEN}"}'
       ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
       INTERNAL_SERVICE_NAME: auth-service
@@ -114,7 +114,7 @@ services:
       INTERNAL_SERVICE_NAME: athlete-service
       INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_AUTH_TOKEN}
       INTERNAL_SERVICE_TOKENS: '{"auth-service":"${AUTH_TO_ATHLETE_TOKEN}","media-service":"${MEDIA_TO_ATHLETE_TOKEN}","ai-review-service":"${AI_TO_ATHLETE_TOKEN}"}'
-      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
       RUN_MIGRATIONS: "true"
@@ -170,7 +170,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       S3_BUCKET_NAME: coachos-videos
       S3_ENDPOINT_URL: http://minio:9000
-      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
       RUN_MIGRATIONS: "true"
@@ -203,6 +203,8 @@ services:
       TIMELINE_PUBLISHING_ENABLED: "true"
     depends_on:
       media-service: {condition: service_healthy}
+    healthcheck:
+      disable: true
 
   ai-review-service:
     <<: *api-common
@@ -219,7 +221,7 @@ services:
       INTERNAL_SERVICE_TOKEN: ${AI_TO_ATHLETE_TOKEN}
       INSIGHT_INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_AI_TOKEN}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
       RUN_MIGRATIONS: "true"
@@ -249,6 +251,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       ai-review-service: {condition: service_healthy}
+    healthcheck:
+      disable: true
 
   ai-review-outbox-worker:
     build:
@@ -260,6 +264,8 @@ services:
     environment: *ai-worker-environment
     depends_on:
       ai-review-service: {condition: service_healthy}
+    healthcheck:
+      disable: true
 
   frontend:
     build:

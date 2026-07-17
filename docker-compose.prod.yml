@@ -218,6 +218,8 @@ services:
       LOG_LEVEL: INFO
     depends_on:
       media-service: {condition: service_healthy}
+    healthcheck:
+      disable: true
 
   ai-review-service:
     <<: *api-security
@@ -265,6 +267,8 @@ services:
       LOG_LEVEL: INFO
     depends_on:
       ai-review-service: {condition: service_healthy}
+    healthcheck:
+      disable: true
 
   ai-review-outbox-worker:
     <<: *worker-security
@@ -273,6 +277,8 @@ services:
     environment: *ai-worker-environment
     depends_on:
       ai-review-service: {condition: service_healthy}
+    healthcheck:
+      disable: true
 
   frontend:
     image: ${FRONTEND_IMAGE}
