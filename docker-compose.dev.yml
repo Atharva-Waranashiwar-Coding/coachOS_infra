@@ -76,6 +76,22 @@ services:
       timeout: 5s
       retries: 20
 
+  assistant-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    networks: [coachos-data]
+    environment:
+      POSTGRES_DB: coachos_assistant
+      POSTGRES_USER: coachos_assistant
+      POSTGRES_PASSWORD: ${ASSISTANT_DB_PASSWORD}
+    ports: ["5544:5432"]
+    volumes: [assistant-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachos_assistant -d coachos_assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   auth-service:
     <<: *api-common
     build:
@@ -232,6 +248,19 @@ services:
       ai-review-db: {condition: service_healthy}
       athlete-service: {condition: service_healthy}
       media-service: {condition: service_healthy}
+
+  assistant-service:
+    <<: *api-common
+    build:
+      context: ../coachos-assistant-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://coachos_assistant:${ASSISTANT_DB_PASSWORD}@assistant-db:5432/coachos_assistant
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      INTERNAL_SERVICE_TOKEN: ${ASSISTANT_INTERNAL_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports: ["8005:8000"]
+    depends_on:
+      assistant-db: {condition: service_healthy}
 
   ai-review-worker:
     build:
@@ -406,6 +435,7 @@ volumes:
   athlete-db-data:
   media-db-data:
   ai-review-db-data:
+  assistant-db-data:
   minio-data:
   prometheus-data:
   loki-data:
