@@ -128,6 +128,8 @@ services:
       AI_REVIEW_SERVICE_INTERNAL_URL: http://ai-review-service:8000
       MEDIA_SERVICE_INTERNAL_URL: http://media-service:8000
       INTERNAL_SERVICE_NAME: athlete-service
+      ASSISTANT_SERVICE_INTERNAL_URL: http://assistant-service:8000
+      ASSISTANT_INTERNAL_TOKEN: ${ASSISTANT_INTERNAL_TOKEN}
       INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_AUTH_TOKEN}
       INTERNAL_SERVICE_TOKENS: '{"auth-service":"${AUTH_TO_ATHLETE_TOKEN}","media-service":"${MEDIA_TO_ATHLETE_TOKEN}","ai-review-service":"${AI_TO_ATHLETE_TOKEN}"}'
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
@@ -139,6 +141,7 @@ services:
     depends_on:
       athlete-db: {condition: service_healthy}
       auth-service: {condition: service_healthy}
+      assistant-service: {condition: service_started}
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -306,6 +309,7 @@ services:
         VITE_ATHLETE_API_URL: /athlete-api
         VITE_AI_REVIEW_API_URL: /ai-review-api
         VITE_MEDIA_API_URL: /media-api
+        VITE_ASSISTANT_API_URL: /assistant-api
     restart: unless-stopped
     init: true
     networks: [coachos-public]
