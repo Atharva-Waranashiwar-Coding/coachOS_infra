@@ -44,7 +44,7 @@ The four backend databases are separate containers, credentials, volumes, and mi
 | Frontend | internal, edge-routed | internal, edge-routed |
 | Backend APIs | `8000`, `8001`, `8003`, `8004` plus edge paths | internal only |
 | PostgreSQL | `5540`-`5543` | internal only |
-| MinIO | `9000`, console `9001` | internal only |
+| MinIO | internal API (uploads proxy through `localhost:8080`), console `9003` | internal only |
 | Prometheus | `9090` | `127.0.0.1:9090` |
 | Grafana | `3000` | `127.0.0.1:3000` |
 | Loki | `3100` | internal only |
