@@ -4,6 +4,10 @@
 
 terraform.tfstate
 terraform.tfstate.*
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+/terraform/environments/production/backend.hcl
 
 .terraform/
 

@@ -1,0 +1,9 @@
+# Copy to backend.hcl locally; do not commit it.
+bucket           = "coachos-terraform-state"
+namespace        = "replace-with-your-real-oci-namespace"
+key              = "production/terraform.tfstate"
+region           = "us-ashburn-1"
+tenancy_ocid     = "ocid1.tenancy.oc1..replace-with-full-ocid"
+user_ocid        = "ocid1.user.oc1..replace-with-full-ocid"
+fingerprint      = "replace-with-api-key-fingerprint"
+private_key_path = "/Users/your-name/.oci/oci_api_key.pem"

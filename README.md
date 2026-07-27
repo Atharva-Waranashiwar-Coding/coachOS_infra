@@ -101,6 +101,28 @@ docker compose --env-file .env -f docker-compose.dev.yml down
 
 ## Production Deployment
 
+### Terraform state bootstrap
+
+The bootstrap and production Terraform configurations use different local
+variable files. Do not copy the production variables into the bootstrap
+directory. First create a valid OCI API signing key and upload its public key
+to OCI Console **Profile → API keys**. Then:
+
+```bash
+cd terraform/bootstrap
+cp terraform.tfvars.example terraform.tfvars
+# Fill only OCI tenancy, user, compartment, fingerprint, private-key path,
+# region, and Object Storage namespace.
+terraform init
+terraform apply
+```
+
+After the private, versioned `coachos-terraform-state` bucket exists, use the
+separate `terraform/environments/production/terraform.tfvars.example` for the
+production host/network configuration. Copy `backend.hcl.example` to ignored
+`backend.hcl`, fill it with the same full OCI identity values, then initialize
+with `terraform init -reconfigure -backend-config=backend.hcl`.
+
 1. Install Docker Engine, the Docker Compose plugin, Git, OpenSSL, and enough persistent disk space.
 2. Clone the infra repository and create `.env`.
 3. Set image variables to images published by the service CI workflows.

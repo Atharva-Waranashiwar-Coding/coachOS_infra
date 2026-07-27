@@ -1,6 +1,10 @@
-aws_region = "us-east-1"
-availability_zones = ["us-east-1a", "us-east-1b"]
-ami_id = "ami-REPLACE_WITH_CURRENT_UBUNTU_22_04_AMD64_AMI"
-instance_type = "t3.large"
-ssh_key_name = "coachos-production"
-allowed_ssh_cidrs = ["203.0.113.10/32"]
+tenancy_ocid           = "ocid1.tenancy.oc1..replace"
+user_ocid              = "ocid1.user.oc1..replace"
+compartment_ocid       = "ocid1.compartment.oc1..replace"
+fingerprint            = "aa:bb:cc:dd:ee:ff"
+private_key_path       = "~/.oci/oci_api_key.pem"
+region                 = "us-ashburn-1"
+namespace              = "replace-object-storage-namespace"
+admin_cidr             = "203.0.113.10/32"
+ssh_public_key_path    = "~/.ssh/id_ed25519.pub"
+deploy_public_key_path = "~/.ssh/id_ed25519.pub"

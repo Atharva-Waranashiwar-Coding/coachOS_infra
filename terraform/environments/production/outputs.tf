@@ -1,3 +1,4 @@
-output "deployment_host_public_ip" { value = module.compute.public_ip }
-output "deployment_host_id" { value = module.compute.instance_id }
-output "backup_bucket_name" { value = module.object_storage.backup_bucket_name }
+output "instance_id" { value = oci_core_instance.coachos.id }
+output "public_ip" { value = oci_core_instance.coachos.public_ip }
+output "backup_bucket" { value = oci_objectstorage_bucket.backups.name }
+output "data_volume_id" { value = oci_core_volume.coachos_data.id }

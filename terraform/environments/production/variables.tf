@@ -1,41 +1,33 @@
-variable "aws_region" {
-  type = string
-}
-variable "project" {
-  type    = string
-  default = "coachos"
-}
-variable "environment" {
-  type    = string
-  default = "production"
-}
-variable "vpc_cidr" {
-  type    = string
-  default = "10.40.0.0/16"
-}
-variable "availability_zones" {
-  type = list(string)
-}
-variable "ami_id" {
-  type = string
-}
-variable "instance_type" {
-  type    = string
-  default = "t3.large"
-}
-variable "ssh_key_name" {
+variable "tenancy_ocid" {
   type      = string
   sensitive = true
 }
-variable "allowed_ssh_cidrs" {
-  type    = list(string)
-  default = []
+variable "user_ocid" {
+  type      = string
+  sensitive = true
 }
-variable "root_volume_gib" {
-  type    = number
-  default = 80
+variable "compartment_ocid" {
+  type      = string
+  sensitive = true
 }
-variable "cloud_init_path" {
+variable "fingerprint" {
+  type      = string
+  sensitive = true
+}
+variable "private_key_path" {
+  type      = string
+  sensitive = true
+}
+variable "region" { type = string }
+variable "namespace" { type = string }
+variable "availability_domain" {
   type    = string
-  default = "../../../cloud-init/cloud-init.yaml"
+  default = null
+}
+variable "admin_cidr" { type = string }
+variable "ssh_public_key_path" { type = string }
+variable "deploy_public_key_path" { type = string }
+variable "backup_retention_days" {
+  type    = number
+  default = 30
 }

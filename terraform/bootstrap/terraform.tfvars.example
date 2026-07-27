@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars locally. This file creates only the state bucket.
+tenancy_ocid     = "ocid1.tenancy.oc1..replace"
+user_ocid        = "ocid1.user.oc1..replace"
+compartment_ocid = "ocid1.compartment.oc1..replace"
+fingerprint      = "aa:bb:cc:dd:ee:ff"
+private_key_path = "/Users/your-name/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
