@@ -353,7 +353,7 @@ services:
 
   frontend-exporter:
     image: nginx/nginx-prometheus-exporter:1.4.1
-    command: ["--nginx.scrape-uri=http://frontend:8080/nginx_status"]
+    command: ["--nginx.scrape-uri=http://frontend:80/nginx_status"]
     restart: always
     networks: [coachos-public, monitoring]
     depends_on: [frontend]
