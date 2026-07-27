@@ -1,12 +1,44 @@
 #cloud-config
+
 package_update: true
-packages: [ca-certificates, curl, git, jq]
+package_upgrade: true
+
+packages:
+  - python3
+  - python3-pip
+  - python3-venv
+  - git
+  - curl
+  - jq
+  - unzip
+  - fail2ban
+  - unattended-upgrades
+  - ca-certificates
+  - gnupg
+
+users:
+  - name: deploy
+    groups:
+      - sudo
+    shell: /bin/bash
+    sudo:
+      - ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ${deploy_user_public_key}
+
+ssh_pwauth: false
+disable_root: true
+
 write_files:
-  - path: /etc/coachos/deploy-authorized-key
-    permissions: '0600'
-    content: ${deploy_user_public_key}
+  - path: /etc/sysctl.d/99-coachos.conf
+    permissions: "0644"
+    content: |
+      vm.swappiness=10
+      vm.max_map_count=262144
+      net.core.somaxconn=4096
+      fs.file-max=2097152
+
 runcmd:
-  - install -d -m 0750 /opt/coachos /opt/coachos/data /opt/coachos/backups /etc/coachos
-  - curl -fsSL https://get.docker.com | sh
-  - systemctl enable --now docker
-  - usermod -aG docker ubuntu
+  - sysctl --system
+  - mkdir -p /opt/coachos
+  - chown -R deploy:deploy /opt/coachos
