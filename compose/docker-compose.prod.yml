@@ -1,0 +1,4 @@
+# Canonical production application stack. The legacy root Compose file remains
+# temporarily for backward compatibility while services are migrated here.
+include:
+  - ../docker-compose.prod.yml

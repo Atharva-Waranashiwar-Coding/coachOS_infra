@@ -1,4 +1,6 @@
-.env
+/.env
+/env/production.env
+/env/image-versions.env
 
 terraform.tfstate
 terraform.tfstate.*

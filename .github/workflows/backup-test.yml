@@ -1,0 +1,8 @@
+name: Backup test
+on: { workflow_dispatch: {} }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: sh -n scripts/backup.sh scripts/restore.sh

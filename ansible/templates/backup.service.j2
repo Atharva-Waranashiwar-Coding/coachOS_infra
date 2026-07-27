@@ -1,0 +1,6 @@
+[Unit]
+Description=CoachOS database backup
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/coachos
+ExecStart=/opt/coachos/scripts/backup.sh

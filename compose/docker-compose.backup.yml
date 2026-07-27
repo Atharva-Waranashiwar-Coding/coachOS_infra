@@ -1,0 +1,3 @@
+# Backup jobs run from the host through scripts/backup.sh to retain access to
+# private database networks without embedding deployment credentials in images.
+services: {}

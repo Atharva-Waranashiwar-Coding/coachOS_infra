@@ -1,0 +1,14 @@
+- name: Create deployment directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop: [/opt/coachos, /etc/coachos, /var/backups/coachos]
+- name: Install CoachOS service
+  ansible.builtin.template:
+    src: ../../templates/coachos.service.j2
+    dest: /etc/systemd/system/coachos.service
+    mode: '0644'
+  notify: Reload systemd

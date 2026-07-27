@@ -1,0 +1,6 @@
+aws_region = "us-east-1"
+availability_zones = ["us-east-1a", "us-east-1b"]
+ami_id = "ami-REPLACE_WITH_CURRENT_UBUNTU_22_04_AMD64_AMI"
+instance_type = "t3.large"
+ssh_key_name = "coachos-production"
+allowed_ssh_cidrs = ["203.0.113.10/32"]

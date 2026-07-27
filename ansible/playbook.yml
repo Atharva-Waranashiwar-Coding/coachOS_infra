@@ -1,0 +1,4 @@
+- name: Provision CoachOS production host
+  hosts: coachos
+  become: true
+  roles: [base, security, firewall, docker, coachos, backup, monitoring]

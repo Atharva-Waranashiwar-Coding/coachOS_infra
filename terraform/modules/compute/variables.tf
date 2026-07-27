@@ -1,0 +1,10 @@
+variable "name" { type = string }
+variable "ami_id" { type = string }
+variable "instance_type" { type = string }
+variable "subnet_id" { type = string }
+variable "vpc_id" { type = string }
+variable "instance_profile_name" { type = string }
+variable "ssh_key_name" { type = string }
+variable "allowed_ssh_cidrs" { type = list(string) }
+variable "root_volume_gib" { type = number }
+variable "user_data" { type = string }

@@ -1,0 +1,3 @@
+# Observability currently ships with the production stack so exporters can join
+# private Compose networks. This file is reserved for a future independent tier.
+services: {}

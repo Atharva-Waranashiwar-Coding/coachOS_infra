@@ -2,7 +2,8 @@
 set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-test -f "$root_dir/.env"
+test -f "$root_dir/env/production.env"
+test -f "$root_dir/env/image-versions.env"
 test -f "$root_dir/nginx/tls/fullchain.pem"
 test -f "$root_dir/nginx/tls/privkey.pem"
 

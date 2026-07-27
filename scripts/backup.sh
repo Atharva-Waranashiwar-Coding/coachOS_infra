@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+root_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+"$root_dir/scripts/backup-all.sh"

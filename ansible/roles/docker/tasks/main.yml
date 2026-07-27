@@ -1,0 +1,5 @@
+- name: Install Docker Engine
+  ansible.builtin.shell: curl -fsSL https://get.docker.com | sh
+  args: { creates: /usr/bin/docker }
+- name: Enable Docker
+  ansible.builtin.service: { name: docker, state: started, enabled: true }

@@ -1,0 +1,5 @@
+- name: Install backup service
+  ansible.builtin.template:
+    src: ../../templates/backup.service.j2
+    dest: /etc/systemd/system/coachos-backup.service
+    mode: '0644'

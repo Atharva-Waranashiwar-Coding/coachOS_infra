@@ -28,8 +28,16 @@ The four backend databases are separate containers, credentials, volumes, and mi
 
 ## Repository Layout
 
+The canonical deployment source of truth is organized as follows:
+
+- `terraform/environments/production` and `terraform/modules`: AWS production host, network, IAM, encrypted storage, object storage, and monitoring primitives.
+- `ansible`: post-provisioning host hardening, Docker installation, firewall, systemd, backups, and monitoring configuration.
+- `compose`: production, observability, and backup Compose entrypoints.
+- `env`: separate ignored production secrets and pinned image-version files, with committed examples.
+- `cloud-init`: first-boot host bootstrap.
+
 - `docker-compose.dev.yml`: source-build integration environment with published developer ports
-- `docker-compose.prod.yml`: image-based hardened production environment
+- `compose/docker-compose.prod.yml`: image-based hardened production environment
 - `nginx`: development and HTTPS-ready production edge configuration
 - `monitoring`: Prometheus rules, Grafana provisioning, Loki, and Promtail
 - `scripts`: deployment, health, TLS, backup, and restore operations
@@ -56,7 +64,8 @@ Networks are split into public edge traffic, internal service traffic, data traf
 Create the untracked deployment environment:
 
 ```bash
-cp .env.example .env
+make bootstrap
+# Fill env/production.env and env/image-versions.env with real values.
 ```
 
 Replace every placeholder. Required groups are:
@@ -100,7 +109,7 @@ docker compose --env-file .env -f docker-compose.dev.yml down
 6. Run the deployment script.
 
 ```bash
-./scripts/deploy.sh
+make deploy
 ```
 
 The script validates Compose, backs up running databases, pulls images, performs a rolling Compose reconciliation, waits for application health, and leaves migrations to the API entrypoints. `alembic upgrade head` is idempotent; workers set `RUN_MIGRATIONS=false` to prevent migration races.

@@ -1,0 +1,2 @@
+- name: Ensure monitoring directory exists
+  ansible.builtin.file: { path: /var/lib/coachos-monitoring, state: directory, mode: '0750' }

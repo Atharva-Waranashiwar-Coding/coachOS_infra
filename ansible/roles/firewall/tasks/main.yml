@@ -1,0 +1,8 @@
+- name: Allow SSH, HTTP, and HTTPS only
+  community.general.ufw:
+    rule: allow
+    port: '{{ item }}'
+    proto: tcp
+  loop: ['22', '80', '443']
+- name: Enable firewall
+  community.general.ufw: { state: enabled, policy: deny }

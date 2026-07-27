@@ -1,0 +1,10 @@
+name: Infrastructure apply
+on: { workflow_dispatch: {} }
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+      - run: echo 'Configure protected cloud credentials and remote backend before enabling apply.'

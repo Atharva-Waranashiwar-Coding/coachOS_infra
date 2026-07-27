@@ -1,0 +1,11 @@
+name: Infrastructure plan
+on: { pull_request: { paths: ['terraform/**'] } }
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform -chdir=terraform/environments/production fmt -check -recursive
+      - run: terraform -chdir=terraform/environments/production init -backend=false
+      - run: terraform -chdir=terraform/environments/production validate

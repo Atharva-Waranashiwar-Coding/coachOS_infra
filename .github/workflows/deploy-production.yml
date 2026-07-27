@@ -1,0 +1,9 @@
+name: Deploy production
+on: { workflow_dispatch: {} }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - run: echo 'Use the existing protected deploy workflow after provisioning the host.'
