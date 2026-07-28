@@ -402,24 +402,26 @@ services:
     networks: [edge]
 
   nginx:
-    image: nginxinc/nginx-unprivileged:1.27-alpine
-    restart: always
+    image: nginx:1.27-alpine
+    container_name: coachos-nginx
+    restart: unless-stopped
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
       - /var/cache/nginx:size=32m
       - /var/run:size=4m
-    cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     networks: [edge, application]
     ports:
-      - "80:8080"
-      - "443:8443"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # Start with nginx.bootstrap.conf to obtain the first certificate. Set
+      # NGINX_CONFIG=prod.conf after issuance, then recreate this service.
+      - ./nginx/${NGINX_CONFIG-nginx.bootstrap.conf}:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/proxy-common.conf:/etc/nginx/proxy-common.conf:ro
-      - /opt/coachos/data/certbot/www:/var/www/certbot:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - letsencrypt:/etc/letsencrypt:ro
     depends_on:
       frontend: {condition: service_healthy}
       auth-service: {condition: service_healthy}
