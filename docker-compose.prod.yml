@@ -8,7 +8,7 @@ x-api-security: &api-security
     - /tmp:size=64m,mode=1777
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
-  networks: [coachos-public, coachos-internal, coachos-data]
+  networks: [application, data]
 
 x-worker-security: &worker-security
   restart: always
@@ -18,12 +18,12 @@ x-worker-security: &worker-security
     - /tmp:size=64m,mode=1777
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
-  networks: [coachos-internal, coachos-data]
+  networks: [application, data]
 
 x-postgres-common: &postgres-common
   image: postgres:16-alpine
   restart: always
-  networks: [coachos-data]
+  networks: [data]
   shm_size: 256mb
   security_opt: ["no-new-privileges:true"]
 
@@ -86,19 +86,22 @@ services:
 
   assistant-db:
     image: pgvector/pgvector:pg16
-    restart: always
-    networks: [coachos-data]
+    restart: unless-stopped
+    networks: [data]
     environment:
-      POSTGRES_DB: coachos_assistant
-      POSTGRES_USER: coachos_assistant
+      POSTGRES_DB: ${ASSISTANT_DB_NAME}
+      POSTGRES_USER: ${ASSISTANT_DB_USER}
       POSTGRES_PASSWORD: ${ASSISTANT_DB_PASSWORD}
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-    volumes: [assistant-db-data:/var/lib/postgresql/data]
+    volumes:
+      - /opt/coachos/data/postgres/assistant:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U coachos_assistant -d coachos_assistant"]
+      test: ["CMD-SHELL", "pg_isready -U ${ASSISTANT_DB_USER} -d ${ASSISTANT_DB_NAME}"]
       interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 10
+    deploy:
+      resources:
+        limits: {memory: 768M}
 
   auth-service:
     <<: *api-security
@@ -113,7 +116,7 @@ services:
       LOG_LEVEL: INFO
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
-      RUN_MIGRATIONS: "true"
+      RUN_MIGRATIONS: "false"
       INTERNAL_SERVICE_TOKENS: '{"athlete-service":"${ATHLETE_TO_AUTH_TOKEN}"}'
       ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
       INTERNAL_SERVICE_NAME: auth-service
@@ -139,13 +142,14 @@ services:
       LOG_LEVEL: INFO
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
-      RUN_MIGRATIONS: "true"
+      RUN_MIGRATIONS: "false"
       AUTH_SERVICE_INTERNAL_URL: http://auth-service:8000
       AI_REVIEW_SERVICE_URL: http://ai-review-service:8000
       AI_REVIEW_SERVICE_INTERNAL_URL: http://ai-review-service:8000
       MEDIA_SERVICE_INTERNAL_URL: http://media-service:8000
       ASSISTANT_SERVICE_INTERNAL_URL: http://assistant-service:8000
-      ASSISTANT_INTERNAL_TOKEN: ${ASSISTANT_INTERNAL_TOKEN}
+      ASSISTANT_SERVICE_TOKEN: ${ATHLETE_TO_ASSISTANT_TOKEN}
+      ASSISTANT_INTERNAL_TOKEN: ${ATHLETE_TO_ASSISTANT_TOKEN}
       INTERNAL_SERVICE_NAME: athlete-service
       INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_AUTH_TOKEN}
       INTERNAL_SERVICE_TOKENS: '{"auth-service":"${AUTH_TO_ATHLETE_TOKEN}","media-service":"${MEDIA_TO_ATHLETE_TOKEN}","ai-review-service":"${AI_TO_ATHLETE_TOKEN}"}'
@@ -159,22 +163,93 @@ services:
   assistant-service:
     <<: *api-security
     image: ${ASSISTANT_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /opt/coachos/env/production.env
     environment:
-      DATABASE_URL: postgresql+psycopg://coachos_assistant:${ASSISTANT_DB_PASSWORD}@assistant-db:5432/coachos_assistant
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      INTERNAL_SERVICE_TOKEN: ${ASSISTANT_INTERNAL_TOKEN}
+      DATABASE_URL: postgresql+psycopg://${ASSISTANT_DB_USER}:${ASSISTANT_DB_PASSWORD}@assistant-db:5432/${ASSISTANT_DB_NAME}
+      ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
+      INTERNAL_SERVICE_TOKEN: ${ATHLETE_TO_ASSISTANT_TOKEN}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       assistant-db: {condition: service_healthy}
+    networks: [application, data]
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
     deploy:
       resources:
-        limits: {cpus: "1.0", memory: 512M}
+        limits: {memory: 512M}
+
+  assistant-migrate:
+    image: ${ASSISTANT_IMAGE}
+    env_file:
+      - /opt/coachos/env/production.env
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${ASSISTANT_DB_USER}:${ASSISTANT_DB_PASSWORD}@assistant-db:5432/${ASSISTANT_DB_NAME}
+    depends_on:
+      assistant-db: {condition: service_healthy}
+    networks: [data]
+    restart: "no"
+
+  auth-migrate:
+    image: ${AUTH_IMAGE}
+    env_file: [/opt/coachos/env/production.env]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://coachos_auth:${AUTH_DB_PASSWORD}@auth-db:5432/coachos_auth
+    depends_on:
+      auth-db: {condition: service_healthy}
+    networks: [data]
+    restart: "no"
+
+  athlete-migrate:
+    image: ${ATHLETE_IMAGE}
+    env_file: [/opt/coachos/env/production.env]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://coachos_athlete:${ATHLETE_DB_PASSWORD}@athlete-db:5432/coachos_athlete
+    depends_on:
+      athlete-db: {condition: service_healthy}
+    networks: [data]
+    restart: "no"
+
+  media-migrate:
+    image: ${MEDIA_IMAGE}
+    env_file: [/opt/coachos/env/production.env]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://coachos_media:${MEDIA_DB_PASSWORD}@media-db:5432/coachos_media
+    depends_on:
+      media-db: {condition: service_healthy}
+    networks: [data]
+    restart: "no"
+
+  ai-review-migrate:
+    image: ${AI_REVIEW_IMAGE}
+    env_file: [/opt/coachos/env/production.env]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://coachos_ai_review:${AI_REVIEW_DB_PASSWORD}@ai-review-db:5432/coachos_ai_review
+    depends_on:
+      ai-review-db: {condition: service_healthy}
+    networks: [data]
+    restart: "no"
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ":9001"
     restart: always
-    networks: [coachos-internal, coachos-data]
+    networks: [application, data]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -183,7 +258,7 @@ services:
 
   minio-init:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
-    networks: [coachos-data]
+    networks: [data]
     depends_on:
       minio: {condition: service_started}
     entrypoint:
@@ -210,7 +285,7 @@ services:
       LOG_LEVEL: INFO
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
-      RUN_MIGRATIONS: "true"
+      RUN_MIGRATIONS: "false"
       ATHLETE_SERVICE_URL: http://athlete-service:8000
       ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
       INTERNAL_SERVICE_NAME: media-service
@@ -266,7 +341,7 @@ services:
       LOG_LEVEL: INFO
       METRICS_ENABLED: "true"
       REQUEST_ID_HEADER: X-Request-ID
-      RUN_MIGRATIONS: "true"
+      RUN_MIGRATIONS: "false"
       ATHLETE_SERVICE_URL: http://athlete-service:8000
       ATHLETE_SERVICE_INTERNAL_URL: http://athlete-service:8000
       MEDIA_SERVICE_URL: http://media-service:8000
@@ -324,7 +399,7 @@ services:
       - /var/run:size=4m
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    networks: [coachos-public]
+    networks: [edge]
 
   nginx:
     image: nginxinc/nginx-unprivileged:1.27-alpine
@@ -336,7 +411,7 @@ services:
       - /var/run:size=4m
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    networks: [coachos-public]
+    networks: [edge, application]
     ports:
       - "80:8080"
       - "443:8443"
@@ -350,26 +425,27 @@ services:
       athlete-service: {condition: service_healthy}
       media-service: {condition: service_healthy}
       ai-review-service: {condition: service_healthy}
+      assistant-service: {condition: service_healthy}
 
   frontend-exporter:
     image: nginx/nginx-prometheus-exporter:1.4.1
     command: ["--nginx.scrape-uri=http://frontend:80/nginx_status"]
     restart: always
-    networks: [coachos-public, monitoring]
+    networks: [edge, observability]
     depends_on: [frontend]
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:1.4.1
     command: ["--nginx.scrape-uri=http://nginx:8080/nginx_status"]
     restart: always
-    networks: [coachos-public, monitoring]
+    networks: [edge, observability]
     depends_on: [nginx]
 
   node-exporter:
     image: prom/node-exporter:v1.9.1
     restart: always
     command: ["--path.rootfs=/host"]
-    networks: [monitoring]
+    networks: [observability]
     pid: host
     volumes:
       - /:/host:ro,rslave
@@ -377,7 +453,7 @@ services:
   auth-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: always
-    networks: [coachos-data, monitoring]
+    networks: [data, observability]
     environment:
       DATA_SOURCE_NAME: postgresql://coachos_auth:${AUTH_DB_PASSWORD}@auth-db:5432/coachos_auth?sslmode=disable
     depends_on:
@@ -386,7 +462,7 @@ services:
   athlete-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: always
-    networks: [coachos-data, monitoring]
+    networks: [data, observability]
     environment:
       DATA_SOURCE_NAME: postgresql://coachos_athlete:${ATHLETE_DB_PASSWORD}@athlete-db:5432/coachos_athlete?sslmode=disable
     depends_on:
@@ -395,7 +471,7 @@ services:
   media-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: always
-    networks: [coachos-data, monitoring]
+    networks: [data, observability]
     environment:
       DATA_SOURCE_NAME: postgresql://coachos_media:${MEDIA_DB_PASSWORD}@media-db:5432/coachos_media?sslmode=disable
     depends_on:
@@ -404,7 +480,7 @@ services:
   ai-review-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: always
-    networks: [coachos-data, monitoring]
+    networks: [data, observability]
     environment:
       DATA_SOURCE_NAME: postgresql://coachos_ai_review:${AI_REVIEW_DB_PASSWORD}@ai-review-db:5432/coachos_ai_review?sslmode=disable
     depends_on:
@@ -413,7 +489,7 @@ services:
   prometheus:
     image: prom/prometheus:v3.4.1
     restart: always
-    networks: [coachos-public, monitoring]
+    networks: [application, data, observability]
     ports: ["127.0.0.1:9090:9090"]
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
     volumes:
@@ -425,7 +501,7 @@ services:
     image: grafana/loki:3.5.1
     command: ["-config.file=/etc/loki/config.yml"]
     restart: always
-    networks: [monitoring]
+    networks: [observability]
     volumes:
       - ./monitoring/loki/config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
@@ -434,7 +510,7 @@ services:
     image: grafana/promtail:3.5.1
     command: ["-config.file=/etc/promtail/config.yml"]
     restart: always
-    networks: [monitoring]
+    networks: [observability]
     read_only: true
     tmpfs: ["/tmp:size=32m,mode=1777"]
     security_opt: ["no-new-privileges:true"]
@@ -446,7 +522,7 @@ services:
   grafana:
     image: grafana/grafana:12.0.2
     restart: always
-    networks: [monitoring]
+    networks: [observability]
     ports: ["127.0.0.1:3000:3000"]
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
@@ -460,12 +536,12 @@ services:
     depends_on: [prometheus, loki]
 
 networks:
-  coachos-public:
-  coachos-internal:
+  edge:
+  application:
     internal: true
-  coachos-data:
+  data:
     internal: true
-  monitoring:
+  observability:
     internal: true
 
 volumes:
@@ -473,7 +549,6 @@ volumes:
   athlete-db-data:
   media-db-data:
   ai-review-db-data:
-  assistant-db-data:
   minio-data:
   prometheus-data:
   loki-data:
