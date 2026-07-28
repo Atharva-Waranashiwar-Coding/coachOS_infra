@@ -418,7 +418,8 @@ services:
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/proxy-common.conf:/etc/nginx/proxy-common.conf:ro
-      - ./nginx/tls:/etc/nginx/tls:ro
+      - /opt/coachos/data/certbot/www:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       frontend: {condition: service_healthy}
       auth-service: {condition: service_healthy}
