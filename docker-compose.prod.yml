@@ -105,7 +105,7 @@ services:
 
   auth-service:
     <<: *api-security
-    image: ${AUTH_IMAGE}
+    image: ghcr.io/atharva-waranashiwar-coding/coachos_auth_service:latest
     environment:
       APP_NAME: coachos-auth-service
       ENVIRONMENT: production
@@ -131,7 +131,7 @@ services:
 
   athlete-service:
     <<: *api-security
-    image: ${ATHLETE_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_athlete_service:latest
     environment:
       APP_NAME: coachos-athlete-service
       APP_ENV: production
@@ -162,7 +162,7 @@ services:
 
   assistant-service:
     <<: *api-security
-    image: ${ASSISTANT_IMAGE}
+    image: ghcr.io/atharva-waranashiwar-coding/coachos_assistant_service:latest
     restart: unless-stopped
     env_file:
       - /opt/coachos/env/production.env
@@ -186,7 +186,7 @@ services:
         limits: {memory: 512M}
 
   assistant-migrate:
-    image: ${ASSISTANT_IMAGE}
+    image: ghcr.io/atharva-waranashiwar-coding/coachos_assistant_service:latest
     env_file:
       - /opt/coachos/env/production.env
     command: ["alembic", "upgrade", "head"]
@@ -198,7 +198,7 @@ services:
     restart: "no"
 
   auth-migrate:
-    image: ${AUTH_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_auth_service:latest
     env_file: [/opt/coachos/env/production.env]
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -210,7 +210,7 @@ services:
     restart: "no"
 
   athlete-migrate:
-    image: ${ATHLETE_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_athlete_service:latest
     env_file: [/opt/coachos/env/production.env]
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -222,7 +222,7 @@ services:
     restart: "no"
 
   media-migrate:
-    image: ${MEDIA_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_media_service:latest
     env_file: [/opt/coachos/env/production.env]
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -234,7 +234,7 @@ services:
     restart: "no"
 
   ai-review-migrate:
-    image: ${AI_REVIEW_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_ai_review_service:latest
     env_file: [/opt/coachos/env/production.env]
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -274,7 +274,7 @@ services:
 
   media-service:
     <<: *api-security
-    image: ${MEDIA_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_media_service:latest
     environment:
       APP_NAME: coachos-media-service
       APP_ENV: production
@@ -307,7 +307,7 @@ services:
 
   media-outbox-worker:
     <<: *worker-security
-    image: ${MEDIA_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_media_service:latest
     command: ["python", "-m", "app.workers.outbox_publisher"]
     environment:
       RUN_MIGRATIONS: "false"
@@ -330,7 +330,7 @@ services:
 
   ai-review-service:
     <<: *api-security
-    image: ${AI_REVIEW_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_ai_review_service:latest
     environment:
       APP_NAME: coachos-ai-review-service
       APP_ENV: production
@@ -359,7 +359,7 @@ services:
 
   ai-review-worker:
     <<: *worker-security
-    image: ${AI_REVIEW_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_ai_review_service:latest
     command: ["python", "-m", "app.workers.review_worker"]
     environment: &ai-worker-environment
       RUN_MIGRATIONS: "false"
@@ -380,7 +380,7 @@ services:
 
   ai-review-outbox-worker:
     <<: *worker-security
-    image: ${AI_REVIEW_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_ai_review_service:latest
     command: ["python", "-m", "app.workers.outbox_publisher"]
     environment: *ai-worker-environment
     depends_on:
@@ -389,7 +389,7 @@ services:
       disable: true
 
   frontend:
-    image: ${FRONTEND_IMAGE}
+    image: ghcr.io/atharvawaranashiwar-coding/coachos_frontend:latest
     restart: always
     init: true
     read_only: true
