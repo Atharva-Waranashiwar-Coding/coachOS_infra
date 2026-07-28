@@ -1,0 +1,89 @@
+- name: Check the OCI data-volume filesystem
+  ansible.builtin.command:
+    cmd: blkid -s TYPE -o value {{ coachos_data_device }}
+  register: coachos_data_filesystem
+  changed_when: false
+  failed_when: coachos_data_filesystem.rc not in [0, 2]
+
+- name: Create ext4 filesystem on an unformatted data volume
+  community.general.filesystem:
+    dev: '{{ coachos_data_device }}'
+    fstype: ext4
+  when: coachos_data_filesystem.rc == 2
+
+- name: Read the data-volume UUID
+  ansible.builtin.command:
+    cmd: blkid -s UUID -o value {{ coachos_data_device }}
+  register: coachos_data_uuid
+  changed_when: false
+
+- name: Mount the CoachOS data volume by UUID
+  ansible.posix.mount:
+    path: '{{ coachos_data_mount }}'
+    src: 'UUID={{ coachos_data_uuid.stdout }}'
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+
+- name: Create persistent CoachOS directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: '0750'
+  loop:
+    - /opt/coachos/app
+    - /opt/coachos/env
+    - /opt/coachos/releases
+    - /opt/coachos/data/postgres/auth
+    - /opt/coachos/data/postgres/athlete
+    - /opt/coachos/data/postgres/media
+    - /opt/coachos/data/postgres/ai-review
+    - /opt/coachos/data/postgres/assistant
+    - /opt/coachos/data/minio
+    - /opt/coachos/data/prometheus
+    - /opt/coachos/data/grafana
+    - /opt/coachos/data/loki
+    - /opt/coachos/backups
+
+- name: Check whether the emergency swap file exists
+  ansible.builtin.stat:
+    path: /swapfile
+  register: coachos_swapfile
+
+- name: Allocate the 4 GB emergency swap file
+  ansible.builtin.command:
+    cmd: fallocate -l 4G /swapfile
+  when: not coachos_swapfile.stat.exists
+
+- name: Protect the swap file
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Initialize swap once
+  ansible.builtin.command:
+    cmd: mkswap /swapfile
+  when: not coachos_swapfile.stat.exists
+
+- name: Persist the emergency swap file in fstab
+  ansible.posix.mount:
+    path: none
+    src: /swapfile
+    fstype: swap
+    opts: sw
+    state: present
+
+- name: Check whether the emergency swap file is active
+  ansible.builtin.command:
+    cmd: swapon --show --noheadings --raw --output NAME
+  register: coachos_active_swap
+  changed_when: false
+
+- name: Activate the emergency swap file
+  ansible.builtin.command:
+    cmd: swapon /swapfile
+  when: '"/swapfile" not in coachos_active_swap.stdout_lines'

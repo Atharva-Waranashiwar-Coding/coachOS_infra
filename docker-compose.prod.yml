@@ -365,6 +365,15 @@ services:
     networks: [coachos-public, monitoring]
     depends_on: [nginx]
 
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: always
+    command: ["--path.rootfs=/host"]
+    networks: [monitoring]
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+
   auth-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: always

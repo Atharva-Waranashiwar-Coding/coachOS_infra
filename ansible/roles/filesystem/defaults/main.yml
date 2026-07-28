@@ -1,0 +1,5 @@
+# OCI presented this paravirtualized data attachment as /dev/sdb. The role
+# persists the resulting filesystem UUID in fstab, so this path is used only
+# during initial formatting and UUID-based mounting is stable across reboots.
+coachos_data_device: /dev/sdb
+coachos_data_mount: /opt/coachos

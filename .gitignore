@@ -8,6 +8,7 @@ terraform.tfstate.*
 *.tfvars.json
 !terraform.tfvars.example
 /terraform/environments/production/backend.hcl
+/ansible/inventories/production/hosts.local.yml
 
 .terraform/
 

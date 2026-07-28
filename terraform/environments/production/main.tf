@@ -9,6 +9,9 @@ data "oci_core_images" "ubuntu" {
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }
+data "oci_objectstorage_namespace" "current" {
+  compartment_id = var.compartment_ocid
+}
 locals {
   availability_domain = coalesce(var.availability_domain, data.oci_identity_availability_domains.ads.availability_domains[0].name)
   tags                = { Project = "CoachOS", Environment = "production", ManagedBy = "Terraform" }
@@ -99,8 +102,8 @@ resource "oci_core_instance" "coachos" {
   display_name        = "coachos-production"
   shape               = "VM.Standard.A1.Flex"
   shape_config {
-    ocpus         = 2
-    memory_in_gbs = 12
+    ocpus         = var.instance_ocpus
+    memory_in_gbs = var.instance_memory_in_gbs
   }
   create_vnic_details {
     subnet_id        = oci_core_subnet.public.id
@@ -114,8 +117,8 @@ resource "oci_core_instance" "coachos" {
     boot_volume_size_in_gbs = 100
   }
   metadata = {
-    ssh_authorized_keys = file(var.ssh_public_key_path)
-    user_data           = base64encode(templatefile("${path.module}/../../../cloud-init/cloud-init.yaml", { deploy_user_public_key = file(var.deploy_public_key_path) }))
+    ssh_authorized_keys = file(pathexpand(var.ssh_public_key_path))
+    user_data           = base64encode(templatefile("${path.module}/../../../cloud-init/cloud-init.yaml", { deploy_user_public_key = file(pathexpand(var.deploy_public_key_path)) }))
   }
   freeform_tags = local.tags
 }
@@ -133,7 +136,7 @@ resource "oci_core_volume_attachment" "coachos_data" {
 }
 resource "oci_objectstorage_bucket" "backups" {
   compartment_id = var.compartment_ocid
-  namespace      = var.namespace
+  namespace      = data.oci_objectstorage_namespace.current.namespace
   name           = "coachos-backups"
   access_type    = "NoPublicAccess"
   versioning     = "Enabled"
@@ -141,7 +144,7 @@ resource "oci_objectstorage_bucket" "backups" {
   freeform_tags  = local.tags
 }
 resource "oci_objectstorage_object_lifecycle_policy" "backups" {
-  namespace = var.namespace
+  namespace = data.oci_objectstorage_namespace.current.namespace
   bucket    = oci_objectstorage_bucket.backups.name
   rules {
     name        = "expire-old-backups"
