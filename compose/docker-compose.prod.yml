@@ -2,7 +2,3 @@
 # temporarily for backward compatibility while services are migrated here.
 include:
   - ../docker-compose.prod.yml
-
-volumes:
-  certbot-webroot:
-  letsencrypt:

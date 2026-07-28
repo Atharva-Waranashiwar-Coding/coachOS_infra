@@ -79,7 +79,7 @@
 
 - name: Check whether the emergency swap file is active
   ansible.builtin.command:
-    cmd: swapon --show --noheadings --raw --output NAME
+    cmd: awk 'NR > 1 { print $1 }' /proc/swaps
   register: coachos_active_swap
   changed_when: false
 

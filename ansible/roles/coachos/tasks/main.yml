@@ -1,11 +1,19 @@
-- name: Create deployment directories
+- name: Ensure the deploy user owns the CoachOS application root
+  ansible.builtin.file:
+    path: /opt/coachos
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: '0750'
+
+- name: Create root-owned CoachOS configuration and backup directories
   ansible.builtin.file:
     path: '{{ item }}'
     state: directory
     owner: root
     group: root
     mode: '0750'
-  loop: [/opt/coachos, /etc/coachos, /var/backups/coachos]
+  loop: [/etc/coachos, /var/backups/coachos]
 - name: Install CoachOS service
   ansible.builtin.template:
     src: ../../templates/coachos.service.j2

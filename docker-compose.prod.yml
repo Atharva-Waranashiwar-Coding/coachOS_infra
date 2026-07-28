@@ -557,3 +557,5 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
+  certbot-webroot:
+  letsencrypt:
